@@ -19,6 +19,8 @@
 #include <pcl_ros/pcl_nodelet.h>
 
 #include "sophus/sim3.hpp"
+#include "KeyFrameGraphDisplay.h"
+
 
 
 class mapAccumulator
@@ -31,7 +33,7 @@ class mapAccumulator
 
     ros::Publisher pub;
 
-    ros::Subscriber frameSub, graphSub;
+    ros::Subscriber frameSub, graphSub, requestSub;
 
 
 
@@ -42,10 +44,13 @@ class mapAccumulator
     void callbackTest(lsd_slam_viewer::keyframeMsgConstPtr msg);
     void reset();
     void KeyFrameCallback(lsd_slam_viewer::keyframeMsgConstPtr msg);
+    void GraphCallback(lsd_slam_viewer::keyframeGraphMsgConstPtr msg);
+    void RequestCallback(std_msgs::Empty msg);
+
 		InputPointDense* inputPoints;
 		Sophus::Sim3f camToWorld;
     int latestFrameID;
 
-    std::vector<lsd_slam_viewer::keyframeMsg> keyFrames;
+    std::map<int, lsd_slam_viewer::keyframeMsg> keyFrames;
 
 };

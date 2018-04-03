@@ -9,8 +9,6 @@
 
 #include "sensor_msgs/PointCloud2.h"
 
-#include "sensor_msgs/PointCloud.h"
-
 #include "KeyFrameDisplay.h"
 
 #include <pcl_conversions/pcl_conversions.h>
@@ -18,9 +16,7 @@
 #include <pcl_ros/pcl_nodelet.h>
 
 #include "sophus/sim3.hpp"
-
-
-
+#include "KeyFrameGraphDisplay.h"
 
 mapAccumulator::mapAccumulator()
 {
@@ -32,7 +28,75 @@ mapAccumulator::mapAccumulator()
 
   //subscribe to keyframe topics
   frameSub = nh.subscribe(nh.resolveName("/lsd_slam/keyframes"),20, &mapAccumulator::KeyFrameCallback, this);
+  graphSub = nh.subscribe(nh.resolveName("lsd_slam/graph"), 5, &mapAccumulator::GraphCallback, this);
+  requestSub = nh.subscribe(nh.resolveName("lsd_slam/map_request"), 1, &mapAccumulator::RequestCallback, this);
   latestFrameID = 0;
+}
+
+void mapAccumulator::RequestCallback(std_msgs::Empty msg)
+{
+  printf("Map has been requested\n");
+  std::map<int, lsd_slam_viewer::keyframeMsg>::iterator Kf;
+  pcl::PointCloud<pcl::PointXYZ> cloud_pcl;
+  int count = 0;
+  int frameCount = 0;
+  for (Kf = keyFrames.begin(); Kf != keyFrames.end(); Kf++)
+  {
+    if (Kf->second.isKeyframe)
+    {
+
+      const float fxi = 1 / Kf->second.fx;
+      const float fyi = 1 / Kf->second.fy;
+      const float cxi = -Kf->second.cx / Kf->second.fx;
+      const float cyi = -Kf->second.cy / Kf->second.fy;
+
+      const int width = Kf->second.width;
+      const int height = Kf->second.height;
+
+      inputPoints = new InputPointDense[width * height];
+
+      memcpy(camToWorld.data(), Kf->second.camToWorld.data(), 7*sizeof(float));
+      memcpy(inputPoints, Kf->second.pointcloud.data(), width*height*sizeof(InputPointDense));
+
+      for (int y = 1; y < height - 1; y++)
+      {
+
+        for (int x = 1; x < width - 1; x++)
+        {
+          if (x == 0 || y == 0 || x == width - 1 || y == height - 1)
+          {
+            continue;
+          }
+
+          if (inputPoints[x + y * width].idepth <= 0)
+          {
+            continue;
+          }
+
+          float depth = 1 / inputPoints[x + y * width].idepth;
+          Sophus::Vector3f pt = camToWorld * (Sophus::Vector3f((x * fxi + cxi), (y * fyi + cyi), 1) * depth);
+          pcl::PointXYZ point;
+          point.x = pt[0];
+          point.y = pt[1];
+          point.z = pt[2];
+
+          cloud_pcl.push_back(point);
+          count++;
+        }
+      }
+    }
+  }
+  cloud_pcl.width = count;
+  cloud_pcl.height = 1;
+  cloud_pcl.is_dense = false;
+  cloud_pcl.header.frame_id = "nav";
+  pcl_conversions::toPCL(ros::Time::now(), cloud_pcl.header.stamp);
+
+  sensor_msgs::PointCloud2 mes;
+  pcl::toROSMsg(cloud_pcl, mes);
+
+  pub.publish(mes);
+  printf("Map construncted from %d keyFrames\nFinished extracting total map. Total of %d points\n", frameCount, count);
 }
 
 void mapAccumulator::callbackTest(lsd_slam_viewer::keyframeMsgConstPtr msg)
@@ -54,11 +118,6 @@ void mapAccumulator::callbackTest(lsd_slam_viewer::keyframeMsgConstPtr msg)
     int count = 0;
     printf("c\n");
     inputPoints = new InputPointDense[width * height];
-    printf("d\n");
-    printf("dD\n");
-
-    printf("0\n");
-    printf("d\n");
     memcpy(camToWorld.data(), msg->camToWorld.data(), 7*sizeof(float));
     memcpy(inputPoints, msg->pointcloud.data(), width*height*sizeof(InputPointDense));
     printf("1");
@@ -104,17 +163,36 @@ void mapAccumulator::callbackTest(lsd_slam_viewer::keyframeMsgConstPtr msg)
   }
 }
 
+void mapAccumulator::GraphCallback(lsd_slam_viewer::keyframeGraphMsgConstPtr msg)
+{
+
+  GraphFramePose* graphPoses = (GraphFramePose*)msg->frameData.data();
+  int ErrorCount = 0;
+  int numGraphPoses = msg->numFrames;
+  for (int i = 0; i < numGraphPoses; i++)
+  {
+    if (keyFrames.count(graphPoses[i].id) == 0)
+    {
+      ErrorCount++;
+    }
+    else
+    {
+      memcpy(keyFrames[graphPoses[i].id].camToWorld.data(), graphPoses[i].camToWorld, 7*sizeof(float));
+    }
+  }
+  printf("Number of frames - %d\nErrorCount is - %d\n", numGraphPoses, ErrorCount);
+}
 
 void mapAccumulator::KeyFrameCallback(lsd_slam_viewer::keyframeMsgConstPtr msg)
 {
-  if (latestFrameID > msg->id)
+  if (msg->id == 1)
   {
     printf("Started from zero, deleting all the saved frames\n");
     keyFrames.clear();
   }
   latestFrameID = msg->id;
   lsd_slam_viewer::keyframeMsg temp = *msg;
-  keyFrames.push_back(temp);
+  keyFrames[temp.id] = temp;
   printf("Latest frmae ID - %d, Current one - %d\n", latestFrameID, temp.id);
   printf("Times is - %f\n\n", temp.time);
   printf("Current size of the buffer: %d\n", keyFrames.size());
