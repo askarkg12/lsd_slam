@@ -22,6 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   roslib
   cmake_modules
+  pcl_conversions
 )
 
 find_package(OpenGL REQUIRED)
@@ -57,6 +58,7 @@ set(SOURCE_FILES
   src/KeyFrameDisplay.cpp
   src/KeyFrameGraphDisplay.cpp
   src/settings.cpp
+  src/map_accum.cpp
 )
 
 set(HEADER_FILES
@@ -64,6 +66,7 @@ set(HEADER_FILES
   src/KeyFrameDisplay.h
   src/KeyFrameGraphDisplay.h
   src/settings.h
+  src/map_accum.h
 )
 
 include_directories(
@@ -72,7 +75,18 @@ include_directories(
 
 add_executable(viewer src/main_viewer.cpp ${SOURCE_FILES} ${HEADER_FILES})
 add_dependencies(viewer lsd_slam_viewer_generate_messages_cpp)
+
+add_executable(mapper src/lsd_slam_map.cpp ${SOURCE_FILES} ${HEADER_FILES})
+add_dependencies(mapper lsd_slam_viewer_generate_messages_cpp)
 target_link_libraries(viewer ${QGLViewer_LIBRARIES}
+			     ${QGLVIEWER_LIBRARY}
+			     ${catkin_LIBRARIES}
+			     ${Boost_LIBRARIES}
+			     ${QT_LIBRARIES}
+			     GL glut GLU
+)
+
+target_link_libraries(mapper ${QGLViewer_LIBRARIES}
 			     ${QGLVIEWER_LIBRARY}
 			     ${catkin_LIBRARIES}
 			     ${Boost_LIBRARIES}
