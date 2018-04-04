@@ -66,9 +66,9 @@ void mapAccumulator::RequestCallback(std_msgs::Empty msg)
       memcpy(camToWorld.data(), Kf->second.camToWorld.data(), 7*sizeof(float));
       memcpy(inputPoints, Kf->second.pointcloud.data(), width*height*sizeof(InputPointDense));
 
-      float a = camToWorld.scale();
-      const float b = a*scaleMult;
-      camToWorld.setScale(b);
+      //float a = camToWorld.scale();
+      //float b = a*scaleMult;
+      //camToWorld.setScale(b);
 
       printf("Scale is %f\n", camToWorld.scale());
 
