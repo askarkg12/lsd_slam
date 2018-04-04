@@ -26,11 +26,19 @@ mapAccumulator::mapAccumulator()
 
   pub = nh.advertise<sensor_msgs::PointCloud2>("testTopic", 1);
 
+  scaleMult = 2;
+
   //subscribe to keyframe topics
   frameSub = nh.subscribe(nh.resolveName("/lsd_slam/keyframes"),20, &mapAccumulator::KeyFrameCallback, this);
+  liveSub = nh.subscribe(nh.resolveName("/lsd_slam/liveframes"),20, &mapAccumulator::LiveFrameCallback, this);
   graphSub = nh.subscribe(nh.resolveName("lsd_slam/graph"), 5, &mapAccumulator::GraphCallback, this);
   requestSub = nh.subscribe(nh.resolveName("lsd_slam/map_request"), 1, &mapAccumulator::RequestCallback, this);
   latestFrameID = 0;
+}
+
+void mapAccumulator::LiveFrameCallback(lsd_slam_viewer::keyframeMsgConstPtr msg)
+{
+
 }
 
 void mapAccumulator::RequestCallback(std_msgs::Empty msg)
@@ -57,6 +65,12 @@ void mapAccumulator::RequestCallback(std_msgs::Empty msg)
 
       memcpy(camToWorld.data(), Kf->second.camToWorld.data(), 7*sizeof(float));
       memcpy(inputPoints, Kf->second.pointcloud.data(), width*height*sizeof(InputPointDense));
+
+      float a = camToWorld.scale();
+      const float b = a*scaleMult;
+      camToWorld.setScale(b);
+
+      printf("Scale is %f\n", camToWorld.scale());
 
       for (int y = 1; y < height - 1; y++)
       {

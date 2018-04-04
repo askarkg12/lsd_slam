@@ -33,7 +33,7 @@ class mapAccumulator
 
     ros::Publisher pub;
 
-    ros::Subscriber frameSub, graphSub, requestSub;
+    ros::Subscriber frameSub, graphSub, requestSub, liveSub;
 
 
 
@@ -44,8 +44,11 @@ class mapAccumulator
     void callbackTest(lsd_slam_viewer::keyframeMsgConstPtr msg);
     void reset();
     void KeyFrameCallback(lsd_slam_viewer::keyframeMsgConstPtr msg);
+    void LiveFrameCallback(lsd_slam_viewer::keyframeMsgConstPtr msg);
     void GraphCallback(lsd_slam_viewer::keyframeGraphMsgConstPtr msg);
     void RequestCallback(std_msgs::Empty msg);
+
+    float scaleMult;
 
 		InputPointDense* inputPoints;
 		Sophus::Sim3f camToWorld;
