@@ -5,7 +5,8 @@
 #include "lsd_slam_viewer/keyframeMsg.h"
 
 #include "std_msgs/Empty.h"
-#include "std_msgs/String.h"
+
+#include "std_msgs/Float32.h"
 
 #include "sensor_msgs/PointCloud2.h"
 
@@ -18,6 +19,15 @@
 #include "sophus/sim3.hpp"
 #include "KeyFrameGraphDisplay.h"
 
+#include <tf/transform_broadcaster.h>
+
+#include <tf/transform_listener.h>
+
+#include <tf2_ros/transform_listener.h>
+
+#include <geometry_msgs/TransformStamped.h>
+#include <tf2_ros/static_transform_broadcaster.h>
+
 mapAccumulator::mapAccumulator()
 {
   printf("This is happening from the class");
@@ -26,14 +36,50 @@ mapAccumulator::mapAccumulator()
 
   pub = nh.advertise<sensor_msgs::PointCloud2>("testTopic", 1);
 
-  scaleMult = 2;
+  scaleMult = 4;
 
   //subscribe to keyframe topics
   frameSub = nh.subscribe(nh.resolveName("/lsd_slam/keyframes"),20, &mapAccumulator::KeyFrameCallback, this);
   liveSub = nh.subscribe(nh.resolveName("/lsd_slam/liveframes"),20, &mapAccumulator::LiveFrameCallback, this);
   graphSub = nh.subscribe(nh.resolveName("lsd_slam/graph"), 5, &mapAccumulator::GraphCallback, this);
   requestSub = nh.subscribe(nh.resolveName("lsd_slam/map_request"), 1, &mapAccumulator::RequestCallback, this);
+  scaleSub = nh.subscribe(nh.resolveName("/lsd_slam/map_scale"), 1, &mapAccumulator::ScaleCallback, this);
   latestFrameID = 0;
+
+  tfListener = new tf2_ros::TransformListener(tfBuffer);
+
+  bool flag = true;
+  while(flag)
+  {
+  try
+  {
+    //tfListener.waitForTransform("/base_footprint", "/nav", ros::Time(0), ros::Duration(3.0));
+    slam_tf = tfBuffer.lookupTransform("nav", "ardrone_base_frontcam",     ros::Time(0));
+    ROS_INFO("It worked");
+    flag = false;
+  }
+  catch (tf2::TransformException ex)
+  {
+     //ROS_ERROR("%s",ex.what());
+   }
+ }
+
+  printf("%f %f %f\n", slam_tf.transform.translation.x, slam_tf.transform.translation.y, slam_tf.transform.translation.z);
+  slam_tf.header.stamp = ros::Time(0);
+  slam_tf.header.frame_id = "nav";
+  slam_tf.child_frame_id = "slam_tf";
+
+  //slam_tf.transform.rotation.w = 1;
+  static_broadcaster.sendTransform(slam_tf);
+
+
+
+}
+
+void mapAccumulator::ScaleCallback(std_msgs::Float32 msg)
+{
+  scaleMult = msg.data;
+  printf("Scale multiplier is now %f\n", scaleMult);
 }
 
 void mapAccumulator::LiveFrameCallback(lsd_slam_viewer::keyframeMsgConstPtr msg)
@@ -70,7 +116,7 @@ void mapAccumulator::RequestCallback(std_msgs::Empty msg)
       //float b = a*scaleMult;
       //camToWorld.setScale(b);
 
-      printf("Scale is %f\n", camToWorld.scale());
+      printf("Scale is %f\n", camToWorld.scale()*3);
 
       for (int y = 1; y < height - 1; y++)
       {
@@ -90,9 +136,9 @@ void mapAccumulator::RequestCallback(std_msgs::Empty msg)
           float depth = 1 / inputPoints[x + y * width].idepth;
           Sophus::Vector3f pt = camToWorld * (Sophus::Vector3f((x * fxi + cxi), (y * fyi + cyi), 1) * depth);
           pcl::PointXYZ point;
-          point.x = pt[0];
-          point.y = pt[1];
-          point.z = pt[2];
+          point.x = scaleMult*pt[0];
+          point.y = scaleMult*pt[1];
+          point.z = scaleMult*pt[2];
 
           cloud_pcl.push_back(point);
           count++;
@@ -103,7 +149,7 @@ void mapAccumulator::RequestCallback(std_msgs::Empty msg)
   cloud_pcl.width = count;
   cloud_pcl.height = 1;
   cloud_pcl.is_dense = false;
-  cloud_pcl.header.frame_id = "nav";
+  cloud_pcl.header.frame_id = "slam_tf";
   pcl_conversions::toPCL(ros::Time::now(), cloud_pcl.header.stamp);
 
   sensor_msgs::PointCloud2 mes;
@@ -166,7 +212,7 @@ void mapAccumulator::callbackTest(lsd_slam_viewer::keyframeMsgConstPtr msg)
     cloud_pcl.width = count;
     cloud_pcl.height = 1;
     cloud_pcl.is_dense = false;
-    cloud_pcl.header.frame_id = "world";
+    cloud_pcl.header.frame_id = "slam_tf";
     pcl_conversions::toPCL(ros::Time::now(), cloud_pcl.header.stamp);
 
     sensor_msgs::PointCloud2 mes;

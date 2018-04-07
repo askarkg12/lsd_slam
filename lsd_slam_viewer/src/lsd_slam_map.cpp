@@ -7,6 +7,8 @@
 #include "std_msgs/String.h"
 #include <sstream>
 
+#include <tf/transform_broadcaster.h>
+
 
 
 
@@ -24,29 +26,10 @@ int main(int argc, char **argv)
 
   mapAcc = new mapAccumulator();
 
-  printf("created class\n");
-
-  ros::Rate loopRate(1);
+  //ros::Rate loopRate(10.0);
 
 
-
-  /*
-  while(ros::ok())
-  {
-    //std_msgs::String msg;
-
-    //std::stringstream ss;
-    //ss << "hello world ";
-  //  msg.data = ss.str();
-
-    //mapAcc->pub.publish(msg);
-
-    ros::spinOnce();
-
-    loopRate.sleep();
-  }
-
-*/ros::spin();
+  ros::spin();
 
 
 }

@@ -6,8 +6,7 @@
 
 #include "std_msgs/Empty.h"
 
-
-#include "std_msgs/String.h"
+#include "std_msgs/Float32.h"
 
 #include "sensor_msgs/PointCloud2.h"
 #include "sensor_msgs/PointCloud.h"
@@ -21,6 +20,14 @@
 #include "sophus/sim3.hpp"
 #include "KeyFrameGraphDisplay.h"
 
+#include <tf/transform_broadcaster.h>
+
+#include <tf/transform_listener.h>
+
+#include <tf2_ros/transform_listener.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <tf2_ros/static_transform_broadcaster.h>
+
 
 
 class mapAccumulator
@@ -33,8 +40,15 @@ class mapAccumulator
 
     ros::Publisher pub;
 
-    ros::Subscriber frameSub, graphSub, requestSub, liveSub;
+    ros::Subscriber frameSub, graphSub, requestSub, liveSub, scaleSub;
 
+    //tf::TransformBroadcaster br;
+
+    tf2_ros::Buffer tfBuffer;
+    tf2_ros::TransformListener* tfListener;
+    geometry_msgs::TransformStamped slam_tf;
+
+    tf2_ros::StaticTransformBroadcaster static_broadcaster;
 
 
 
@@ -47,6 +61,8 @@ class mapAccumulator
     void LiveFrameCallback(lsd_slam_viewer::keyframeMsgConstPtr msg);
     void GraphCallback(lsd_slam_viewer::keyframeGraphMsgConstPtr msg);
     void RequestCallback(std_msgs::Empty msg);
+
+    void ScaleCallback(std_msgs::Float32 msg);
 
     float scaleMult;
 

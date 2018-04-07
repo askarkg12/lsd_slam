@@ -23,6 +23,7 @@ find_package(catkin REQUIRED COMPONENTS
   roslib
   cmake_modules
   pcl_conversions
+  tf
 )
 
 find_package(OpenGL REQUIRED)
