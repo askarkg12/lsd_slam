@@ -28,6 +28,9 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 
+#include <math.h>
+
+
 
 
 class mapAccumulator
@@ -46,9 +49,10 @@ class mapAccumulator
 
     tf2_ros::Buffer tfBuffer;
     tf2_ros::TransformListener* tfListener;
-    geometry_msgs::TransformStamped slam_tf;
+    geometry_msgs::TransformStamped slam_tf, cam_tf;
 
     tf2_ros::StaticTransformBroadcaster static_broadcaster;
+    tf2_ros::TransformBroadcaster broadcaster;
 
 
 
@@ -62,7 +66,7 @@ class mapAccumulator
     void GraphCallback(lsd_slam_viewer::keyframeGraphMsgConstPtr msg);
     void RequestCallback(std_msgs::Empty msg);
 
-    void ScaleCallback(std_msgs::Float32 msg);
+    void ScaleCallback(std_msgs::Empty msg);
 
     float scaleMult;
 

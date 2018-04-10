@@ -28,6 +28,8 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 
+#include <math.h>
+
 mapAccumulator::mapAccumulator()
 {
   printf("This is happening from the class");
@@ -48,15 +50,14 @@ mapAccumulator::mapAccumulator()
 
   tfListener = new tf2_ros::TransformListener(tfBuffer);
 
-  bool flag = true;
-  while(flag)
+  //bool flag = true;
+  while(true)
   {
   try
   {
-    //tfListener.waitForTransform("/base_footprint", "/nav", ros::Time(0), ros::Duration(3.0));
     slam_tf = tfBuffer.lookupTransform("nav", "ardrone_base_frontcam",     ros::Time(0));
     ROS_INFO("It worked");
-    flag = false;
+    break;
   }
   catch (tf2::TransformException ex)
   {
@@ -72,19 +73,60 @@ mapAccumulator::mapAccumulator()
   //slam_tf.transform.rotation.w = 1;
   static_broadcaster.sendTransform(slam_tf);
 
-
+  cam_tf.child_frame_id = "cam_tf";
+  cam_tf.header.frame_id = "slam_tf";
+  cam_tf.transform.rotation.x = 0;
+  cam_tf.transform.rotation.x = 0;
+  cam_tf.transform.rotation.x = 0;
+  cam_tf.transform.rotation.w = 1;
 
 }
 
-void mapAccumulator::ScaleCallback(std_msgs::Float32 msg)
+void mapAccumulator::ScaleCallback(std_msgs::Empty msg)
 {
-  scaleMult = msg.data;
-  printf("Scale multiplier is now %f\n", scaleMult);
+  geometry_msgs::TransformStamped drone, cam;
+  while(true)
+  {
+    try
+    {
+      drone = tfBuffer.lookupTransform("slam_tf", "ardrone_base_frontcam",     ros::Time(0));
+      ROS_INFO("It worked");
+      break;
+    }
+    catch (tf2::TransformException ex)
+    {
+    }
+  }
+  while(true)
+  {
+    try
+    {
+      cam = tfBuffer.lookupTransform("slam_tf", "cam_tf",     ros::Time(0));
+      ROS_INFO("It worked");
+      break;
+    }
+    catch (tf2::TransformException ex)
+    {
+    }
+  }
+  float lenCam, lenDrone;
+  lenCam = sqrt(pow(cam.transform.translation.x, 2) + pow(cam.transform.translation.z, 2));
+  lenDrone = sqrt(pow(drone.transform.translation.x, 2) + pow(drone.transform.translation.z, 2));
+  float ratio = lenDrone/lenCam;
+  printf("Current ratio is %f\n", ratio);
+  scaleMult = scaleMult*ratio;
+  printf("New scale is %f\n", scaleMult);
 }
 
 void mapAccumulator::LiveFrameCallback(lsd_slam_viewer::keyframeMsgConstPtr msg)
 {
-
+  memcpy(camToWorld.data(), msg->camToWorld.data(), 7*sizeof(float));
+  Sophus::Vector3f vec = camToWorld.translation();
+  cam_tf.transform.translation.x = vec[0]*scaleMult;
+  cam_tf.transform.translation.y = vec[1]*scaleMult;
+  cam_tf.transform.translation.z = vec[2]*scaleMult;
+  cam_tf.header.stamp = ros::Time(0);
+  broadcaster.sendTransform(cam_tf);
 }
 
 void mapAccumulator::RequestCallback(std_msgs::Empty msg)
