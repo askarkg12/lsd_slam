@@ -32,11 +32,7 @@
 
 mapAccumulator::mapAccumulator()
 {
-  printf("This is happening from the class");
-
-
-
-  pub = nh.advertise<sensor_msgs::PointCloud2>("testTopic", 1);
+  pub = nh.advertise<sensor_msgs::PointCloud2>("/lsd_slam/pointcloud2", 1);
 
   scaleMult = 4;
 
@@ -154,10 +150,6 @@ void mapAccumulator::RequestCallback(std_msgs::Empty msg)
       memcpy(camToWorld.data(), Kf->second.camToWorld.data(), 7*sizeof(float));
       memcpy(inputPoints, Kf->second.pointcloud.data(), width*height*sizeof(InputPointDense));
 
-      //float a = camToWorld.scale();
-      //float b = a*scaleMult;
-      //camToWorld.setScale(b);
-
       printf("Scale is %f\n", camToWorld.scale()*3);
 
       for (int y = 1; y < height - 1; y++)
@@ -174,6 +166,8 @@ void mapAccumulator::RequestCallback(std_msgs::Empty msg)
           {
             continue;
           }
+
+          
 
           float depth = 1 / inputPoints[x + y * width].idepth;
           Sophus::Vector3f pt = camToWorld * (Sophus::Vector3f((x * fxi + cxi), (y * fyi + cyi), 1) * depth);
