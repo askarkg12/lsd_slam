@@ -152,10 +152,10 @@ void mapAccumulator::RequestCallback(std_msgs::Empty msg)
 
       printf("Scale is %f\n", camToWorld.scale()*3);
 
-      for (int y = 1; y < height - 1; y++)
+      for (int y = 2; y < height - 2; y++)
       {
 
-        for (int x = 1; x < width - 1; x++)
+        for (int x = 2; x < width - 2; x++)
         {
           if (x == 0 || y == 0 || x == width - 1 || y == height - 1)
           {
@@ -167,7 +167,29 @@ void mapAccumulator::RequestCallback(std_msgs::Empty msg)
             continue;
           }
 
-          
+          int nearSupport = 0;
+
+          for (int dx = -2; dx <3; ++dx)
+          {
+            for (int dy = -2; dy<3; ++dy)
+            {
+              const InputPointDense pointNear = inputPoints[x+dx+(y+dy)*width];
+
+              if (pointNear.idepth > 0)
+              {
+                const float diff = pointNear.idepth - inputPoints[x + y * width].idepth;
+                if (diff * diff < 2 * inputPoints[x + y * width].idepth_var)
+                {
+                  nearSupport++;
+                }
+              }
+            }
+          }
+
+          if (nearSupport < 21)
+          {
+            continue;
+          }
 
           float depth = 1 / inputPoints[x + y * width].idepth;
           Sophus::Vector3f pt = camToWorld * (Sophus::Vector3f((x * fxi + cxi), (y * fyi + cyi), 1) * depth);
